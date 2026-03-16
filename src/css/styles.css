@@ -882,7 +882,7 @@ footer {
    TRANSFER SECTION (HIDDEN/SHOW)
 ===================== */
 .hidden {
-  display: none !important;
+  display:none !important;
 }
 
 .transfer-section {
