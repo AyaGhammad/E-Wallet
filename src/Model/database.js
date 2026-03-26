@@ -67,6 +67,3 @@ export const finduserbyaccount=(numcompte)=>{
     return database.users.find((u)=>u.account===numcompte);
 }
 
-
-
-

@@ -1,7 +1,6 @@
 // recuperation des elements DOM
 const loginBtn  = document.getElementById("Loginbtn");
 //const signinBtn = document.getElementById("Signinbtn");
-
 // bouton Login
 loginBtn.addEventListener("click", handleLogin);
 
