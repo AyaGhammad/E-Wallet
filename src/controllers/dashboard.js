@@ -1,141 +1,303 @@
+import {getbeneficiaries, finduserbyaccount, findbeneficiarieByid} from "../Model/database.js";
+
 const user = JSON.parse(sessionStorage.getItem("currentUser"));
 
-
-const greetingname = document.querySelector("#greetingName");
-const soldeDisp = document.querySelector("#availableBalance");
-const revenus = document.querySelector("#monthlyIncome");
-const depenses = document.querySelector("#monthlyExpenses");
-const actvCards = document.querySelector("#activeCards");
-
-// Affichage des informations utilisateur
-greetingname.textContent = user.name;
-
-// Solde total des cartes
-soldeDisp.textContent = user.wallet.cards.reduce((total, carte) => total + carte.balance, 0);
-
-// Revenus 
-const transactionsDebit = user.wallet.transactions.filter(t => t.type === "debit");
-revenus.textContent = transactionsDebit.reduce((total, t) => total + t.amount, 0);
-
-// Dépenses 
-const transactionsCredit = user.wallet.transactions.filter(t => t.type === "credit");
-depenses.textContent = transactionsCredit.reduce((total, t) => total + t.amount, 0);
-
-// Nombre de cartes actives
-actvCards.textContent = user.wallet.cards.length;
-
-// elements de la fenetre transferer
-const transferBtn = document.querySelector("#quickTransfer");
-const section = document.querySelector("#transfer-section");
-const closeBtn = document.querySelector("#closeTransferBtn");
-const annulerBtn = document.querySelector("#cancelTransferBtn");
-const submitbtn = document.querySelector("#submitTransferBtn");
-
-// Éléments du formulaire
-const selectBenf = document.querySelector("#beneficiary");
-const selectCards = document.querySelector("#sourceCard");
-const montantInput = document.querySelector("#amount");
-const instantCheckbox = document.querySelector("#instantTransfer");
-
-// Initialisation des options
-document.querySelector("#beneficiary option[value='1']").textContent = "Ahmed";
-document.querySelector("#sourceCard option[value='visa-4242']").textContent = "visa";
-
-
-// Ouverture de la fenêtre de transfert
-transferBtn.addEventListener("click", () => {
-    setTimeout(() => {
-        section.classList.remove("hidden");
-    }, 1000);
-});
-
-// Fermeture de la fenêtre
-closeBtn.addEventListener("click", fermerFenetre);
-annulerBtn.addEventListener("click", fermerFenetre);
-
-function fermerFenetre() {
-    section.classList.add("hidden");
+// Guard
+if (!user) {
+  alert("User not authenticated");
+  window.location.href = "/index.html";
 }
 
-//transferer
-submitbtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    
-    // Récupération des valeurs du formulaire
-    const montant = Number(montantInput.value);
-    const instantane = instantCheckbox.checked;
-    
-    // Recherche de la carte à débiter (Visa)
-    const carte = user.wallet.cards.find(c => c.type === "visa");
-    
-    // Validation du montant
-    if (montant <= 0) {
-        alert("Le montant doit être supérieur à 0");
-        return;
-    }
-    
-    if (!carte) {
-        alert("Carte introuvable");
-        return;
-    }
-    
-    // Calcul du montant total avec frais si transfert instantané
-    const montantTotal = instantane ? montant + 13.4 : montant;
-    
-    // Vérification du solde
-    if (montantTotal > carte.balance) {
-        alert("Solde insuffisant");
-        return;
-    }
-    
-    // Mise à jour du solde de la carte
-    carte.balance -= montantTotal;
-    
-    // Ajout de la transaction
-    const nvTransaction = {
-        type: "credit",
-        amount: montantTotal,
-        to: selectBenf.value === "1" ? "Ahmed" : selectBenf.value,
-        date: new Date().toLocaleDateString(),
-        from : greetingname
-    };   
-    user.wallet.transactions.push(nvTransaction);
-    // Sauvegarde dans sessionStorage
-    sessionStorage.setItem("currentUser", JSON.stringify(user));
-    
-    // Mise à jour de l'affichage
-    mettreAJourDashboard();
-    
-    // Message de confirmation
-    const fraisMsg = instantane ? " ( + 13.4 MAD de frais)" : "";
-    alert(`Transfert de ${montant} MAD${fraisMsg} effectué avec succès`);
-    
-    // Fermeture de la fenêtre
-    fermerFenetre();
-    
-    //affichage de la transaction
-    document.querySelector('.transaction-item').innerHTML += 
-    "<p>Type Transaction : " + nvTransaction.type + "</p>" +
-    "<p>Montant : " + nvTransaction.amount + " MAD</p>" +
-    "<p>Bénéficiaire : " + nvTransaction.to + "</p>" +
-    "<p>Date: " + nvTransaction.date + "</p>"
-    +"<hr>";
-    
-});
+// DOM elements
+const greetingName = document.getElementById("greetingName");
+const currentDate = document.getElementById("currentDate");
+const solde = document.getElementById("availableBalance");
+const incomeElement = document.getElementById("monthlyIncome");
+const expensesElement = document.getElementById("monthlyExpenses");
+const activecards = document.getElementById("activeCards");
+const transactionsList = document.getElementById("recentTransactionsList");
+
+const transferBtn = document.getElementById("quickTransfer");
+const transferSection = document.getElementById("transferPopup");
+const closeTransferBtn = document.getElementById("closeTransferBtn");
+const cancelTransferBtn = document.getElementById("cancelTransferBtn");
+const beneficiarySelect = document.getElementById("beneficiary");
+const sourceCard = document.getElementById("sourceCard");
+const sourceCardR = document.getElementById("sourceCardR");
 
 
-function mettreAJourDashboard() {
-    // Solde total
-    const totalSolde = user.wallet.cards.reduce((total, c) => total + c.balance, 0);
-    soldeDisp.textContent = totalSolde;
+
+// Events Transfer
+transferBtn.addEventListener("click", handleTransfersection);
+closeTransferBtn.addEventListener("click", closeTransfer);
+cancelTransferBtn.addEventListener("click", closeTransfer);
+document.getElementById("transferForm").addEventListener("submit", handleTransfer); 
+// Events Recharger
+const rechargerBtn = document.getElementById("quickTopup");
+const rechargerSection = document.getElementById("rechargerPopup");
+const closeRechargerBtn = document.getElementById("closeRechargerBtn");
+const cancelRechargerBtn = document.getElementById("cancelRechargerBtn");
+
+rechargerBtn.addEventListener("click", handleRechargersection);
+closeRechargerBtn.addEventListener("click", closeRecharger);
+cancelRechargerBtn.addEventListener("click", closeRecharger);
+document.getElementById("rechargerForm").addEventListener("submit", handleRecharger); 
+
+
+const getDashboardData = () => {
+  const monthlyIncome = user.wallet.transactions
+    .filter(t => t.type === "credit")
+    .reduce((total, t) => total + t.amount, 0);
+
+  const monthlyExpenses = user.wallet.transactions
+    .filter(t => t.type === "debit")
+    .reduce((total, t) => total + t.amount, 0);
+
+  return {
+    userName: user.name,
+    currentDate: new Date().toLocaleDateString("fr-FR"),
+    availableBalance: `${user.wallet.balance} ${user.wallet.currency}`,
+    activeCards: user.wallet.cards.length,
+    monthlyIncome: `${monthlyIncome} MAD`,
+    monthlyExpenses: `${monthlyExpenses} MAD`,
+  };
+};
+
+function renderDashboard() {
+  const dashboardData = getDashboardData();
+  greetingName.textContent = dashboardData.userName;
+  currentDate.textContent = dashboardData.currentDate;
+  solde.textContent = dashboardData.availableBalance;
+  incomeElement.textContent = dashboardData.monthlyIncome;
+  expensesElement.textContent = dashboardData.monthlyExpenses;
+  activecards.textContent = dashboardData.activeCards;
+
+  transactionsList.innerHTML = "";
+  user.wallet.transactions.forEach(transaction => {
+    const transactionItem = document.createElement("div");
+    transactionItem.className = "transaction-item";
+    transactionItem.innerHTML = `
+      <div>${transaction.date}</div>
+      <div>${transaction.amount} MAD</div>
+      <div>${transaction.type}</div>
+    `;
+    transactionsList.appendChild(transactionItem);
+  });
+}
+renderDashboard();
+
+// -----------Transfer ----------------
+
+function closeTransfer() {
+  transferSection.classList.remove("active");
+  document.body.classList.remove("popup-open");
+}
+
+function handleTransfersection() {
+  transferSection.classList.add("active");
+  document.body.classList.add("popup-open");
+}
+
+const beneficiaries = getbeneficiaries(user.id);
+
+function renderBeneficiaries() {
+  beneficiaries.forEach((beneficiary) => {
+    const option = document.createElement("option");
+    option.value = beneficiary.id;
+    option.textContent = beneficiary.name;
+    beneficiarySelect.appendChild(option);
+  });
+}
+renderBeneficiaries();
+
+function renderCards() {
+  user.wallet.cards.forEach((card) => {
+    const option = document.createElement("option");
+    option.value = card.numcards;
+    option.textContent = card.type + "****" + card.numcards;
+    sourceCard.appendChild(option);
+  });
+}
+renderCards();
+
+function checkUser(numcompte) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const destinataire = finduserbyaccount(numcompte);
+      if (!destinataire) {
+        reject("Destinataire non trouvé");
+      } else {
+        resolve(destinataire);
+      }
+    }, 1000);
+  });
+}
+
+function checkSolde(expediteur, amount) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      if (expediteur.wallet.balance < amount) {
+        reject("Solde insuffisant");
+      } else {
+        resolve("Solde suffisant");
+      }
+    }, 1000);
+  });
+}
+
+function updateSolde(expediteur, destinataire, amount) {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      expediteur.wallet.balance -= amount;
+      destinataire.wallet.balance += amount;
+      resolve("Solde mis à jour");
+    }, 1000);
+  });
+}
+
+function addtransactions(expediteur, destinataire, amount) {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      expediteur.wallet.transactions.push({
+        amount, description: "Transfer sent",
+        type: "debit", status: "completed",
+        date: new Date().toLocaleDateString()
+      });
+      destinataire.wallet.transactions.push({
+        amount, description: "Transfer received",
+        type: "credit", status: "completed",
+        date: new Date().toLocaleDateString()
+      });
+      resolve("Transactions ajoutées");
+    }, 1000);
+  });
+}
+
+function transfer(expediteur, numcompte, amount) {
+  checkUser(numcompte)
+    .then((destinataire) => checkSolde(expediteur, amount).then(() => destinataire))
+    .then((destinataire) => updateSolde(expediteur, destinataire, amount).then(() => destinataire))
+    .then((destinataire) => addtransactions(expediteur, destinataire, amount))
+    .then(() => {
+      alert("Transfert réussi !");
+      renderDashboard();
+      closeTransfer();
+    })
+    .catch((error) => {
+      alert(error);
+    });
+}
+
+function handleTransfer(e) {
+  e.preventDefault();
+  const beneficiaryId = document.getElementById("beneficiary").value;
+  const beneficiaryAccount = findbeneficiarieByid(user.id, beneficiaryId).account;
+  const amount = Number(document.getElementById("amount").value);
+
+  transfer(user, beneficiaryAccount, amount);
+}
+
+// -----------Recharger-------
+function closeRecharger() {
+  rechargerSection.classList.remove("active");
+  document.body.classList.remove("popup-open");
+}
+
+function handleRechargersection() {
+  rechargerSection.classList.add("active");
+  document.body.classList.add("popup-open");
+}
+
+function renderCardsR() {
+  user.wallet.cards.forEach((card) => {
+    const option = document.createElement("option");
+    option.value = card.numcards;
+    option.textContent = card.type + "****" + card.numcards;
+    sourceCardR.appendChild(option);
+  });
+}
+renderCardsR();
+
+function checkAmount(amount) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      if (!amount || isNaN(amount)) {
+        reject("Veuillez entrer un montant valide");
+      } else if (amount < 10) {
+        reject("Le montant minimum est 10 MAD");
+      } else if (amount > 5000) {
+        reject("Le montant maximum est 5000 MAD");
+      } else {
+        resolve(amount);
+      }
+    }, 500);
+  });
+}
+
+function checkCard(numcard, amount) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const card = user.wallet.cards.find(c => c.numcards === numcard);
+      if (!card) {
+        reject("Carte non trouvée");
+      } else if (card.balance < amount) {
+        reject("Solde de la carte insuffisant");
+      } else if (new Date(card.expiry) < new Date()) {
+        reject("Carte expirée");
+      } else {
+        resolve(card);
+      }
+    }, 1000);
+  });
+}
+
+function updateSoldeRecharger(expediteur, amount) {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      expediteur.wallet.balance += amount;
+      resolve("Solde mis à jour");
+    }, 1000);
+  });
+}
+
+function addRechargerTransaction(expediteur, amount, valid) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      expediteur.wallet.transactions.push({
+        amount,
+        description: valid ? "Recharge valide" : "Recharge échouée",
+        type: valid ? "recharge(succee)" : "recharge(echoue)",
+        status: valid ? "succee" : "echoue",
+        date: new Date().toLocaleDateString()
+      });
+      valid ? resolve("Transaction ajoutée") : reject("Transaction échouée enregistrée");
+    }, 1000);
+  });
+}
+
+
+function recharger(expediteur, numcard, amount) {
+  checkAmount(amount)
+    .then(() => checkCard(numcard, amount))
+    .then(() => updateSoldeRecharger(expediteur, amount))
+    .then(() => addRechargerTransaction(expediteur, amount, true))
+    .then(() => {alert("Recharge effectuée avec succès !"); })
     
-    // Revenus
-    const revenusTrans = user.wallet.transactions.filter(t => t.type === "debit");
-    const totalRevenus = revenusTrans.reduce((total, t) => total + t.amount, 0);
-    revenus.textContent = totalRevenus;
-    
-    // Dépenses
-    const depensesTrans = user.wallet.transactions.filter(t => t.type === "credit");
-    const totalDepenses = depensesTrans.reduce((total, t) => total + t.amount, 0);
-    depenses.textContent = totalDepenses;
+    .catch((error) => {
+      alert(error); 
+      return addRechargerTransaction(expediteur, amount, false).catch(() => {});
+    })
+    .finally(() => {
+      renderDashboard();
+      closeRecharger();
+    });
+}
+
+function handleRecharger(e) {
+  e.preventDefault();
+
+  const numcard = document.getElementById("sourceCardR").value;
+  const amount = Number(document.getElementById("amountRecharger").value);
+
+  recharger(user, numcard, amount);
 }

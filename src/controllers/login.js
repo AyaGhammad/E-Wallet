@@ -1,26 +1,31 @@
-import findfinduserbymail from "../models/database.js";
 
-const mailinput = document.querySelector("#mail");
-const passinput = document.querySelector("#password");
-const subbtn = document.querySelector("#submitbtn");
+import {finduserbymail} from "../Model/database.js";
 
-subbtn.addEventListener("click",handleSub);
-function handleSub(){
-    let mail = mailinput.value;
-    let pass= passinput.value;
-    if(!mail || !pass){
-        alert("Bad Credentials!!");
-    }
-    else{
-        subbtn.textContent="Checking!";
+// recuperation des elements DOM
+const mailInput = document.getElementById("mail");
+const passwordInput  = document.getElementById("password");
+const submitBtn = document.getElementById("submitbtn");
+const display   = document.getElementById("display");
+// event listener sur le bouton Se connecter
+submitBtn.addEventListener("click", handleSubmit);
+
+function handleSubmit() {
+    let mail = mailInput.value;
+    let password = passwordInput.value;
+
+    if (!mail || password === "") {
+        alert("Bad credentials.");
+    } else {
+        submitBtn.textContent = "Checking!!!";
+        const user = finduserbymail(mail, password);
+
         setTimeout(() => {
-            const usr=findfinduserbymail(mail,pass);
-            if(usr){
-                sessionStorage.setItem("currentUser",JSON.stringify(usr));
-                document.location="/src/Views/dashboard.html";
-            }
-            else{
-                alert("Bad Credentials");
+            if (user) {
+                sessionStorage.setItem("currentUser", JSON.stringify(user));
+                document.location = "dashboard.html";
+            } else {
+                alert("Bad credentials.");
+                submitBtn.textContent = "Se connecter";
             }
         }, 2000);
     }
