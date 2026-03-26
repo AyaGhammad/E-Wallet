@@ -26,7 +26,6 @@ const sourceCard = document.getElementById("sourceCard");
 const sourceCardR = document.getElementById("sourceCardR");
 
 
-
 // Events Transfer
 transferBtn.addEventListener("click", handleTransfersection);
 closeTransferBtn.addEventListener("click", closeTransfer);
