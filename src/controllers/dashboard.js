@@ -172,7 +172,8 @@ function addtransactions(expediteur, destinataire, amount) {
   });
 }
 
-function transfer(expediteur, numcompte, amount) {
+async function transfer(expediteur, numcompte, amount) {
+  /*Promisses
   checkUser(numcompte)
     .then((destinataire) => checkSolde(expediteur, amount).then(() => destinataire))
     .then((destinataire) => updateSolde(expediteur, destinataire, amount).then(() => destinataire))
@@ -185,6 +186,24 @@ function transfer(expediteur, numcompte, amount) {
     .catch((error) => {
       alert(error);
     });
+  */
+//async await
+    try{
+      const destinataire = await checkUser(numcompte);
+      console.log(destinataire);
+      const res2 = await checkSolde(expediteur, amount);
+      console.log(res2);
+      const res3 = await updateSolde(expediteur, destinataire, amount);
+      console.log(res3);
+      const res4 = await addtransactions(expediteur, destinataire, amount);
+      console.log(res4);
+      renderDashboard();
+      closeTransfer();
+    }
+    catch(error){
+      alert(error);
+    }
+
 }
 
 function handleTransfer(e) {
@@ -274,8 +293,8 @@ function addRechargerTransaction(expediteur, amount, valid) {
   });
 }
 
-
-function recharger(expediteur, numcard, amount) {
+async function recharger(expediteur, numcard, amount) {
+  /*Promisses
   checkAmount(amount)
     .then(() => checkCard(numcard, amount))
     .then(() => updateSoldeRecharger(expediteur, amount))
@@ -290,7 +309,29 @@ function recharger(expediteur, numcard, amount) {
       renderDashboard();
       closeRecharger();
     });
+  */
+ //async Await
+try{
+      const res1=await checkAmount(amount);
+      console.log(res1);
+      const res2 = await checkCard(numcard, amount);
+      console.log(res2);
+      const res3 = await updateSoldeRecharger(expediteur, amount);
+      console.log(res3);
+      const res4 = await addRechargerTransaction(expediteur, amount, true);
+      console.log(res4);
+
+    }catch(error){
+      await addRechargerTransaction(expediteur, amount, false);
+      alert(error);
+    }
+    finally{
+      renderDashboard();
+      closeRecharger();
+    }
 }
+
+    
 
 function handleRecharger(e) {
   e.preventDefault();
